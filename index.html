@@ -1572,6 +1572,21 @@ body.prod-locked  #result-panel::before{
 #mode-bc,#mode-qa,#mode-result{display:none!important}
 #tab1,#tab3,#tab4{display:none!important}
 .bot-nav{grid-template-columns:1fr 1fr!important}
+/* ── Danh tính theo THIẾT BỊ (đã bỏ ô chọn giám sát) ─────── */
+/* dòng Thiết bị không bấm mở được gì → bỏ mũi tên chevron thừa */
+#card-general .row2 .field:last-child::after{display:none!important}
+.tb-row{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-height:34px}
+#tb-ten{font-weight:700;font-size:13px;color:#1F3864;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tb-doi{flex:none;border:1px solid #C9D2E3;background:#fff;color:#0066CC;font-weight:700;font-size:11px;padding:4px 10px;border-radius:7px;cursor:pointer}
+.tb-mask{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+.tb-sheet{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:380px;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+.tb-sheet h3{margin:0 0 6px;font-size:16px;color:#1F3864}
+.tb-sheet p{margin:0 0 14px;font-size:12px;color:#64748B;line-height:1.45}
+.tb-goiy{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}
+.tb-pick{border:1px solid #C9D2E3;background:#F5F8FD;color:#1F3864;font-weight:700;font-size:12px;padding:7px 12px;border-radius:8px;cursor:pointer}
+.tb-input{width:100%;border:1px solid #C9D2E3;border-radius:9px;padding:11px 12px;font-size:14px;font-weight:700;color:#1F3864;margin-bottom:12px;box-sizing:border-box}
+.tb-ok{width:100%;border:0;background:#0066CC;color:#fff;font-weight:700;font-size:15px;padding:13px;border-radius:11px;cursor:pointer}
+.tb-huy{width:100%;border:0;background:transparent;color:#64748B;font-weight:700;font-size:13px;padding:10px;margin-top:4px;cursor:pointer}
 </style>
 </head>
  <body data-template-id="__page-root" style="background: rgb(238, 242, 247);">
@@ -1617,8 +1632,9 @@ body.prod-locked  #result-panel::before{
        <div class="ngay-wrap"><input type="date" id="f-ngay" aria-required="true" aria-describedby="f-ngay-txt"><span id="f-ngay-txt"></span></div>
       </div>
       <div class="field">
-       <label class="fld-lb" for="f-gs">Người báo cáo</label>
-       <select id="f-gs" aria-required="true" onchange="onReporterChange()"> <option value="">— Chọn người báo cáo —</option> </select>
+       <label class="fld-lb">Thiết bị báo cáo</label>
+       <div class="tb-row"><span id="tb-ten">—</span><button type="button" id="tb-doi" onclick="doiTenThietBi()">Đổi</button></div>
+       <select id="f-gs" aria-required="true" onchange="onReporterChange()" hidden></select>
       </div>
      </div>
     </div>
@@ -4885,6 +4901,9 @@ async function init() {
   }
   loadStoredReporterStates();
   populateReporters();
+  // Lần đầu mở app trên máy này: bắt buộc đặt tên trước khi vào form.
+  if(!tenThietBi()) await hoiTenThietBi(true);
+  populateReporters();
   await dongBoDongHoServer();                       // LỖI #33
   setReportSession(autoReportSessionByTime());
   showEmptyPlaceholder();
@@ -4903,7 +4922,12 @@ async function init() {
       }
     })
     .catch(e=>veTrangThaiDongBo('⚠️ Không tải được dữ liệu: '+(e&&e.message||e),'err'))
-    .finally(()=>{ ketThucTai(); try{calcTotal();}catch(e){} });
+    .finally(()=>{
+      ketThucTai();
+      // Không còn bước chọn người báo cáo → tự mở luôn phiếu của máy này.
+      try{ showReporterView(tenThietBi()); }catch(e){ console.error('Không mở được phiếu thiết bị:',e); }
+      try{calcTotal();}catch(e){}
+    });
   canhBaoVeGuiConSot();
 }
 
@@ -4922,14 +4946,78 @@ async function dongBoDongHoServer(){
     }
   }catch(e){ console.warn('Không lấy được giờ server, tạm dùng giờ máy:',e); }
 }
+// ── DANH TÍNH THEO THIẾT BỊ ────────────────────────────────
+// Không chọn giám sát nữa: máy này luôn báo cáo dưới MỘT tên, đặt một lần.
+const KEY_THIET_BI='sailing_thiet_bi_v1';
+function tenThietBi(){ try{ return (localStorage.getItem(KEY_THIET_BI)||'').trim(); }catch(e){ return ''; } }
+function luuTenThietBi(ten){
+  ten=String(ten||'').trim().replace(/\s+/g,' ');
+  if(!ten) return false;
+  try{ localStorage.setItem(KEY_THIET_BI, ten); }catch(e){}
+  return true;
+}
+function veTenThietBi(){
+  const el=document.getElementById('tb-ten');
+  if(el) el.textContent = tenThietBi() || '— chưa đặt tên —';
+}
 function populateReporters() {
   const sel=document.getElementById('f-gs');
-  sel.innerHTML='<option value="">— Chọn người báo cáo —</option>';
-  ['PHAN THANH QUY','HOÀNG LƯƠNG ANH'].forEach(function(nm){
-    if(!PROJECT.reporters.map(x=>String(x).trim()).includes(nm)) PROJECT.reporters.push(nm);
-  });
-  PROJECT.reporters.forEach(r=>{const o=document.createElement('option');o.textContent=r;sel.appendChild(o);});
+  if(!sel) return;
+  // Giữ danh sách gốc để gợi ý lúc đặt tên; sau đó PROJECT.reporters chỉ còn
+  // đúng máy này, để hydrate không gọi server cho những người không liên quan.
+  const goc=(PROJECT.reportersGoc||[])
+    .concat(PROJECT.reporters||[])
+    .concat(['PHAN THANH QUY','HOÀNG LƯƠNG ANH'])   // hai tên vốn được thêm cứng ở bản cũ
+    .map(x=>String(x).trim()).filter(Boolean);
+  PROJECT.reportersGoc=goc.filter((x,i)=>goc.indexOf(x)===i);
+  const ten=tenThietBi();
+  sel.innerHTML='';
+  const o=document.createElement('option');
+  o.value=ten; o.textContent=ten||'—';
+  sel.appendChild(o);
+  sel.value=ten;
+  if(ten) PROJECT.reporters=[ten];
+  veTenThietBi();
 }
+// Hộp đặt tên thiết bị. batBuoc=true (lần đầu mở app) thì không có nút Hủy.
+function hoiTenThietBi(batBuoc){
+  return new Promise(resolve=>{
+    const cu=document.getElementById('tb-mask'); if(cu) cu.remove();
+    const mask=document.createElement('div');
+    mask.id='tb-mask'; mask.className='tb-mask';
+    const goiY=(PROJECT.reportersGoc||[]).filter(Boolean);
+    mask.innerHTML='<div class="tb-sheet">'
+      +'<h3>Thiết bị này báo cáo dưới tên nào?</h3>'
+      +'<p>Chỉ phải đặt MỘT LẦN. Tên này đứng ở cột “Người BC” của mọi báo cáo gửi từ máy này, và giữ cho dữ liệu của các máy không đè lên nhau.</p>'
+      +(goiY.length?'<div class="tb-goiy">'+goiY.map(nm=>'<button type="button" class="tb-pick">'+esc(nm)+'</button>').join('')+'</div>':'')
+      +'<input id="tb-input" class="tb-input" type="text" placeholder="Hoặc gõ tên khác…" value="'+esc(tenThietBi())+'">'
+      +'<button type="button" id="tb-ok" class="tb-ok">Xong</button>'
+      +(batBuoc?'':'<button type="button" id="tb-huy" class="tb-huy">Hủy</button>')
+      +'</div>';
+    document.body.appendChild(mask);
+    const inp=mask.querySelector('#tb-input');
+    mask.querySelectorAll('.tb-pick').forEach(b=>{ b.onclick=()=>{ inp.value=b.textContent; }; });
+    function xong(){
+      const ten=(inp.value||'').trim();
+      if(!ten){ try{toast('⚠️ Hãy đặt tên cho thiết bị này','err');}catch(e){} inp.focus(); return; }
+      luuTenThietBi(ten); mask.remove(); resolve(ten);
+    }
+    mask.querySelector('#tb-ok').onclick=xong;
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter') xong(); });
+    const huy=mask.querySelector('#tb-huy');
+    if(huy) huy.onclick=()=>{ mask.remove(); resolve(null); };
+    setTimeout(()=>{ try{inp.focus();}catch(e){} },120);
+  });
+}
+async function doiTenThietBi(){
+  const cu=tenThietBi();
+  const ten=await hoiTenThietBi(false);
+  if(!ten || ten===cu) return;
+  populateReporters();
+  await onReporterChange();
+  toast('Đã đổi tên thiết bị thành '+ten,'ok');
+}
+window.doiTenThietBi=doiTenThietBi;
 function activeMode() {
   return parseInt(document.querySelector('.nav-btn.active')?.id?.replace('tab',''))||0;
 }
