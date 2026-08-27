@@ -2701,7 +2701,7 @@ function _bcHienTai(){
   return r ? (getSubmittedReport(r) || getReporterState(r) || {}) : {};
 }
 function canSubmitCongViec(){
-  if (laCheDoTongHop()) return 'Chọn "Người báo cáo" trước khi gửi.';
+  if (laCheDoTongHop()) return '⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên';
   if (dangTaiDuLieu()) return 'Đang tải dữ liệu, chờ một chút.';
   const coNTC = Object.keys(qsCards).some(i=>document.getElementById('qsc-'+i));
   const coCN  = Object.keys(cnTasks).length > 0;
@@ -2750,7 +2750,7 @@ function moKhoaBuoc(buoc){
 window.moKhoaBuoc = moKhoaBuoc;
 
 function canSubmitAnh(){
-  if (laCheDoTongHop()) return 'Chọn "Người báo cáo" trước khi gửi.';
+  if (laCheDoTongHop()) return '⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên';
   if (dangTaiDuLieu()) return 'Đang tải dữ liệu, chờ một chút.';
   const rpt = _bcHienTai();
   if (!reportHasWork(rpt)) return 'Hãy hoàn tất và gửi bước Công việc trước.';
@@ -2761,7 +2761,7 @@ function canSubmitAnh(){
   return null;
 }
 function canSubmitSanLuong(){
-  if (laCheDoTongHop()) return 'Chọn "Người báo cáo" trước khi gửi.';
+  if (laCheDoTongHop()) return '⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên';
   if (dangTaiDuLieu()) return 'Đang tải dữ liệu, chờ một chút.';
   const rpt = _bcHienTai();
   if (!reportHasWork(rpt)) return 'Hãy hoàn tất và gửi bước Công việc trước.';
@@ -2772,7 +2772,7 @@ function canSubmitSanLuong(){
   return null;
 }
 function canSubmitNghiemThu(){
-  if (laCheDoTongHop()) return 'Chọn "Người báo cáo" trước khi gửi.';
+  if (laCheDoTongHop()) return '⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên';
   if (dangTaiDuLieu()) return 'Đang tải dữ liệu, chờ một chút.';
   const rpt = _bcHienTai();
   if (!reportHasProductionSubmitted(rpt)) return 'Hãy hoàn tất và gửi bước Sản lượng trước.';
@@ -2890,7 +2890,7 @@ function aggregateWorkItemsForCurrentView() {
         // do server ghi vào state (đồng bộ ảnh đa thiết bị).
         savedPhoto1: savedPhotoData['pi1-'+item.id] || savedRow.ph1_data || photoDrive['pi1-'+item.id] || null,
         savedPhoto2: savedPhotoData['pi2-'+item.id] || savedRow.ph2_data || photoDrive['pi2-'+item.id] || null,
-        detail: [item.detail, reporter ? `GS: ${reporter}` : ''].filter(Boolean).join(' · ')
+        detail: item.detail
       };
     });
   });
@@ -4988,7 +4988,7 @@ function hoiTenThietBi(batBuoc){
     const goiY=(PROJECT.reportersGoc||[]).filter(Boolean);
     mask.innerHTML='<div class="tb-sheet">'
       +'<h3>Thiết bị này báo cáo dưới tên nào?</h3>'
-      +'<p>Chỉ phải đặt MỘT LẦN. Tên này đứng ở cột “Người BC” của mọi báo cáo gửi từ máy này, và giữ cho dữ liệu của các máy không đè lên nhau.</p>'
+      +'<p>Chỉ phải đặt MỘT LẦN. Tên này đứng ở cột “Người BC” của mọi báo cáo gửi từ máy này, và giữ cho dữ liệu của các máy không đè lên nhau.<br><b>Nên bấm chọn đúng tên trong danh sách dưới đây</b> — gõ tên lạ thì Excel báo cáo nhân lực sẽ báo “không khớp danh sách BCH”.</p>'
       +(goiY.length?'<div class="tb-goiy">'+goiY.map(nm=>'<button type="button" class="tb-pick">'+esc(nm)+'</button>').join('')+'</div>':'')
       +'<input id="tb-input" class="tb-input" type="text" placeholder="Hoặc gõ tên khác…" value="'+esc(tenThietBi())+'">'
       +'<button type="button" id="tb-ok" class="tb-ok">Xong</button>'
@@ -5000,7 +5000,12 @@ function hoiTenThietBi(batBuoc){
     function xong(){
       const ten=(inp.value||'').trim();
       if(!ten){ try{toast('⚠️ Hãy đặt tên cho thiết bị này','err');}catch(e){} inp.focus(); return; }
-      luuTenThietBi(ten); mask.remove(); resolve(ten);
+      luuTenThietBi(ten);
+      // Gán danh tính NGAY, KHÔNG đợi tải dữ liệu từ server. Nếu đợi thì có
+      // 5–9 giây app vẫn coi như "chưa chọn người báo cáo": mọi nút Thêm đều
+      // bị chặn kèm toast bảo đi chọn người báo cáo — mà ô đó đã bỏ rồi.
+      try{ populateReporters(); currentReporter = ten; }catch(e){ console.error('Không gán được danh tính thiết bị:',e); }
+      mask.remove(); resolve(ten);
     }
     mask.querySelector('#tb-ok').onclick=xong;
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter') xong(); });
@@ -5171,7 +5176,7 @@ function addQSRow(data={}) {
   if (!isRestoring && !data.pending) {
     // Check if reporter is selected
     if (!currentReporter) {
-      toast('⚠️ Vui lòng chọn Người báo cáo trước','err');
+      toast('⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên','err');
       document.getElementById('f-gs').focus();
       return;
     }
@@ -5787,7 +5792,7 @@ function addCNTask() {
   if (!isRestoring) {
     // Check if reporter is selected
     if (!currentReporter) {
-      toast('⚠️ Vui lòng chọn Người báo cáo trước','err');
+      toast('⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên','err');
       document.getElementById('f-gs').focus();
       return;
     }
@@ -7240,7 +7245,7 @@ async function submitQS(){
   });
   try {
   setReportSession(autoReportSessionByTime());
-  if(!valReq('f-gs','Vui lòng chọn người báo cáo'))return;
+  if(!valReq('f-gs','⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên'))return;
   // LỖI #11 — chặn tại chỗ, kể cả khi ai đó gọi submitQS() thẳng từ console.
   const _canGui = canSubmitCongViec();
   if(_canGui && _canGui!=='__DA_GUI__'){ toast('⚠️ '+_canGui,'err'); setQSSubmitting(false); return; }
@@ -7537,7 +7542,7 @@ async function submitBC(){
   if (window.__busySubmit) { toast('Đang gửi, vui lòng đợi…',''); return; }
   // Cùng một báo cáo đang bay thì không cho bấm lần hai (khác loại vẫn gửi được).
   if (dangGuiKhoa('hinh-anh')) { toast('Báo cáo hình ảnh đang được gửi lên hệ thống…',''); return; }
-  if(!valReq('f-gs','Vui lòng chọn người báo cáo'))return;
+  if(!valReq('f-gs','⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên'))return;
   const photoItems=document.querySelectorAll('#photo-panel .photo-item');
   if(!photoItems.length){toast('⚠️ Chưa có công việc nào. Hãy điền báo cáo Công việc trước','err');return;}
   for(const item of photoItems){
@@ -8001,7 +8006,7 @@ async function submitCD(){
   if (window.__busySubmit) { toast('Đang gửi, vui lòng đợi…',''); return; }
   // Cùng một báo cáo đang bay thì không cho bấm lần hai (khác loại vẫn gửi được).
   if (dangGuiKhoa('san-luong')) { toast('Báo cáo sản lượng đang được gửi lên hệ thống…',''); return; }
-  if(!valReq('f-gs','Vui lòng chọn người báo cáo'))return;
+  if(!valReq('f-gs','⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên'))return;
   const resultItems=document.querySelectorAll('#result-panel .result-item');
   if(!resultItems.length){toast('⚠️ Chưa có công việc nào. Hãy điền báo cáo Công việc trước','err');return;}
   for(const item of resultItems){
@@ -8588,7 +8593,7 @@ init();
     //  (2) phải điền xong thẻ trước rồi mới thêm thẻ mới → tránh đẻ ra thẻ rỗng
     if(!data.pending && !isRestoring){
       if(!currentReporter){
-        toast('⚠️ Vui lòng chọn Người báo cáo trước','err');
+        toast('⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên','err');
         document.getElementById('f-gs')?.focus();
         return;
       }
@@ -9114,7 +9119,7 @@ init();
       '<div class="bs-sheet" onclick="event.stopPropagation()">'
       +'<div class="bs-h"><h3>➕ Bổ sung nhân công</h3><button class="bs-x" onclick="closeBoSung()">✕</button></div>'
       +'<p class="bs-sub">Dùng khi nhà thầu đến trễ, bổ sung thêm quân số <b>sau khi đã gửi báo cáo</b>. '
-      +'Hệ thống sẽ cộng dồn vào tổng quân số trong ngày và gửi email cập nhật vào đúng luồng cảnh báo thiếu quân số.</p>'
+      +'Hệ thống sẽ cộng dồn vào tổng quân số trong ngày.</p>'
       +'<div id="bs-gs-line" style="font-size:12px;color:var(--muted);margin-bottom:6px"></div>'
       +'<label class="bs-lb">Nhà thầu</label>'
       +'<select class="bs-sel" id="bs-ntc" onchange="bsBuildItems()"><option value="">— Chọn nhà thầu —</option></select>'
@@ -9132,7 +9137,7 @@ init();
       +'<label class="bs-lb">Ghi chú (không bắt buộc)</label>'
       +'<textarea class="bs-ta" id="bs-note" rows="2" placeholder="VD: 3 thợ đến lúc 9h30"></textarea>'
       +'<div class="bs-info" id="bs-info"></div>'
-      +'<button class="bs-send" id="bs-send" onclick="submitBoSung()">Gửi bổ sung & cập nhật email</button>'
+      +'<button class="bs-send" id="bs-send" onclick="submitBoSung()">Gửi bổ sung</button>'
       +'</div>';
     mask.addEventListener('click',function(){closeBoSung();});
     document.body.appendChild(mask);
@@ -9233,7 +9238,7 @@ init();
     // BẮT BUỘC chọn Người báo cáo trước khi bổ sung nhân công
     var gs=(typeof v==='function'?v('f-gs'):'')||(typeof selectedReporter==='function'?selectedReporter():'');
     if(!gs){
-      if(typeof toast==='function')toast('⚠️ Vui lòng chọn Người báo cáo trước khi bổ sung nhân công','err');
+      if(typeof toast==='function')toast('⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên','err');
       var fg=document.getElementById('f-gs');if(fg){try{fg.focus();fg.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}}
       return;
     }
@@ -9247,7 +9252,7 @@ init();
       return;
     }
     buildBoSungModal();
-    var gsLine=document.getElementById('bs-gs-line');if(gsLine)gsLine.innerHTML='Người báo cáo: <b style="color:var(--navy)">'+gs+'</b>';
+    var gsLine=document.getElementById('bs-gs-line');if(gsLine)gsLine.innerHTML='Thiết bị: <b style="color:var(--navy)">'+gs+'</b>';
     var sel=document.getElementById('bs-ntc');
     if(sel){var cur=sel.value;
       sel.innerHTML='<option value="">— Chọn nhà thầu —</option>'+
@@ -9292,7 +9297,7 @@ init();
     var note=(document.getElementById('bs-note')||{}).value||'';
     var ngay=(typeof v==='function'?v('f-ngay'):'');
     var gs=(typeof v==='function'?v('f-gs'):'')||(typeof selectedReporter==='function'?selectedReporter():'');
-    if(!gs){if(typeof toast==='function')toast('Vui lòng chọn người báo cáo','err');return;}
+    if(!gs){if(typeof toast==='function')toast('⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên','err');return;}
     if(!ntc){if(typeof toast==='function')toast('Vui lòng chọn nhà thầu','err');return;}
     var sels=_bsAll.filter(function(x){return _bsSelKeys.has(_bsKey(x));});
     if(!sels.length){if(typeof toast==='function')toast('Vui lòng tích chọn ít nhất 1 công việc chưa hoàn thành','err');return;}
@@ -9334,7 +9339,7 @@ init();
     try{storeSubmittedReport(gs,{ntcRows:mergedNtc,workItems:workItems});}
     catch(localErr){localBoSungError=localErr;console.error('Sheet đã lưu nhưng máy chưa cập nhật bổ sung:',localErr);}
     var cansBS=[...new Set(sels.map(function(it){return it.can;}))].join(', ');
-    if(btn){btn.disabled=false;btn.textContent='Gửi bổ sung & cập nhật email';}
+    if(btn){btn.disabled=false;btn.textContent='Gửi bổ sung';}
     setSubmitBusy(false);
     if(localBoSungError){
       toast('⚠️ Máy chưa cập nhật được các tab. Bấm ↻ để tải lại.','err');
@@ -9685,12 +9690,12 @@ init();
     // BẮT BUỘC chọn Người báo cáo trước khi làm defect
     var gs=(typeof v==='function'?v('f-gs'):'')||(typeof selectedReporter==='function'?selectedReporter():'');
     if(!gs){
-      if(typeof toast==='function')toast('⚠️ Vui lòng chọn Người báo cáo trước khi thêm defect','err');
+      if(typeof toast==='function')toast('⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên','err');
       var fg=document.getElementById('f-gs');if(fg){try{fg.focus();fg.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}}
       return;
     }
     buildDefectModal();
-    var gsLine=document.getElementById('df-gs-line');if(gsLine)gsLine.innerHTML='Người báo cáo: <b style="color:var(--navy)">'+gs+'</b>';
+    var gsLine=document.getElementById('df-gs-line');if(gsLine)gsLine.innerHTML='Thiết bị: <b style="color:var(--navy)">'+gs+'</b>';
     var sel=document.getElementById('df-ntc');
     if(sel){var cur=sel.value;
       sel.innerHTML='<option value="">— Chọn nhà thầu —</option>'+
@@ -9846,7 +9851,7 @@ init();
     var cn=parseInt((document.getElementById('df-cn')||{}).textContent,10)||0;
     var ngay=(typeof v==='function'?v('f-ngay'):'');
     var gs=(typeof v==='function'?v('f-gs'):'')||(typeof selectedReporter==='function'?selectedReporter():'');
-    if(!gs){toast('Vui lòng chọn người báo cáo','err');return;}
+    if(!gs){toast('⚠️ Chưa có tên thiết bị — bấm nút Đổi ở mục Thông tin chung để đặt tên','err');return;}
     if(!ntc){toast('Vui lòng chọn nhà thầu','err');return;}
     var sels=_dfAll.filter(function(x){return _dfSelKeys.has(_dfKey(x));});
     if(!sels.length){toast('Vui lòng tích chọn ít nhất 1 hạng mục đã hoàn thành 100%','err');return;}
