@@ -8898,12 +8898,12 @@ init();
     // ở cuối chuỗi là bị cắt mất đúng con số cần nhìn.
     var _soDong=qsSoDongSeGhi(qs);
     el.textContent=(moTa||'Chưa chọn đầu mục')
-      +(_soDong?' · '+_soDong+' dòng / '+_soDong+' ảnh':'')
+      +(_soDong?' · '+_soDong+' dòng':'')
       +(flow.length?' · '+flow.join(' · '):'');
     // Nhắc ngay trên danh sách đầu mục — chỗ GS đang tích chọn.
     var _lb=document.getElementById('sw-item-label-'+i);
     if(_lb)_lb.textContent='5. Đầu mục công việc'
-      +(_soDong?' — sẽ ghi '+_soDong+' dòng, cần '+_soDong+' ảnh':'');
+      +(_soDong?' — sẽ ghi '+_soDong+' dòng':'');
     danhSoLaiBuoc(i);
     // badge "N người" ở tiêu đề mục 1 phải chạy lại mỗi lần thẻ đổi
     try{calcTotal();}catch(e){}
